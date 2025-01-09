@@ -159,6 +159,19 @@ const AzimuthalMap: React.FC = () => {
         Click and drag to rotate the map. Use mouse wheel to zoom in and out to
         see the entire projection.
       </p>
+      <p></p>
+      <p className="mt-2 text-center text-sm text-gray-600">
+        Interested in how this map was made? Check out the source code on{" "}
+        <a
+          href="https://github.com/skaramicke/map.sa6ham.se"
+          className="text-blue-500 underline"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          GitHub
+        </a>
+        !
+      </p>
     </div>
   );
 };
