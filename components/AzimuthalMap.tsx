@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import * as d3 from "d3";
 import {
   geoPath,
@@ -24,8 +24,9 @@ interface Topology {
 
 const AzimuthalMap: React.FC = () => {
   const svgRef = useRef<SVGSVGElement>(null);
-  const rotationRef = useRef<[number, number, number]>([0, 0, 0]);
+  const rotationRef = useRef<[number, number, number]>([-13, -58, 0]);
   const zoomRef = useRef<d3.ZoomTransform>(d3.zoomIdentity);
+  const [coordinates, setCoordinates] = useState<[number, number]>([-13, -58]);
 
   useEffect(() => {
     if (!svgRef.current) return;
@@ -156,7 +157,10 @@ const AzimuthalMap: React.FC = () => {
           const deltaX = ev.deltaX - lastDeltaX;
           const deltaY = ev.deltaY - lastDeltaY;
 
-          rotationRef.current = [x + deltaX * k, y - deltaY * k, 0];
+          const newX = x + deltaX * k;
+          const newY = y - deltaY * k;
+          rotationRef.current = [newX, newY, 0];
+          setCoordinates([newX, newY]);
           updateMap();
 
           lastDeltaX = ev.deltaX;
@@ -232,10 +236,15 @@ const AzimuthalMap: React.FC = () => {
 
     // Add aria-label for accessibility
     svg.attr("aria-label", "Interactive Azimuthal Equidistant World Map");
+    updateMap();
   }, []);
 
   return (
     <div className="w-full max-w-[880px] aspect-square">
+      <h1 className="text-2xl font-bold mb-4 text-center">Azimuthal Map</h1>
+      <h2 className="text-xl font-bold mb-4 text-center">
+        {`${coordinates[0].toFixed(2)}°, ${coordinates[1].toFixed(2)}°`}
+      </h2>
       <svg ref={svgRef} className="w-full h-full cursor-move"></svg>
       <p className="mt-2 text-center text-sm text-gray-600">
         Click and drag to rotate the map. Use mouse wheel or pinch to zoom in
@@ -258,4 +267,3 @@ const AzimuthalMap: React.FC = () => {
 };
 
 export default AzimuthalMap;
-
