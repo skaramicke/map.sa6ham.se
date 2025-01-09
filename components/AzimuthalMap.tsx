@@ -32,17 +32,26 @@ const AzimuthalMap: React.FC = () => {
 
     const width = 800;
     const height = 800;
+    const padding = 40; // Add padding to accommodate labels
+    const totalWidth = width + 2 * padding;
+    const totalHeight = height + 2 * padding;
+
     const svg = d3
       .select(svgRef.current)
-      .attr("width", width)
-      .attr("height", height)
-      .attr("viewBox", [0, 0, width, height].join(" "));
+      .attr("width", totalWidth)
+      .attr("height", totalHeight)
+      .attr("viewBox", [0, 0, totalWidth, totalHeight].join(" "));
 
     // Clear any existing content
     svg.selectAll("*").remove();
 
+    // Create a group for the entire map and center it within the padded SVG
+    const mapGroup = svg
+      .append("g")
+      .attr("transform", `translate(${padding}, ${padding})`);
+
     // Create a clipping path
-    const clipPath = svg
+    const clipPath = mapGroup
       .append("defs")
       .append("clipPath")
       .attr("id", "circle-clip");
@@ -54,10 +63,12 @@ const AzimuthalMap: React.FC = () => {
       .attr("r", (height - 20) / 2);
 
     // Create a group for the map content and apply the clip path
-    const mapGroup = svg.append("g").attr("clip-path", "url(#circle-clip)");
+    const clippedGroup = mapGroup
+      .append("g")
+      .attr("clip-path", "url(#circle-clip)");
 
     // Create a background within the clipped area
-    mapGroup
+    clippedGroup
       .append("rect")
       .attr("width", width)
       .attr("height", height)
@@ -69,7 +80,7 @@ const AzimuthalMap: React.FC = () => {
 
     const path: GeoPath = geoPath().projection(projection);
 
-    const g = mapGroup.append("g");
+    const g = clippedGroup.append("g");
 
     function updateMap() {
       projection.rotate(rotationRef.current);
@@ -139,7 +150,8 @@ const AzimuthalMap: React.FC = () => {
         hammer.on("panmove", (ev) => {
           const [x, y] = rotationRef.current;
           const baseK = 0.3;
-          const k = baseK / Math.sqrt(projection.scale() / ((height - 20) / 2));
+          const zoomFactor = Math.sqrt(zoomRef.current.k);
+          const k = baseK / zoomFactor;
 
           const deltaX = ev.deltaX - lastDeltaX;
           const deltaY = ev.deltaY - lastDeltaY;
@@ -163,7 +175,7 @@ const AzimuthalMap: React.FC = () => {
         });
 
         // Add a circle to represent the edge of the projection
-        svg
+        mapGroup
           .append("circle")
           .attr("cx", width / 2)
           .attr("cy", height / 2)
@@ -172,6 +184,47 @@ const AzimuthalMap: React.FC = () => {
           .attr("stroke", "#000")
           .attr("stroke-width", 1)
           .attr("pointer-events", "none");
+
+        // Add degree markings
+        const degreesGroup = mapGroup.append("g");
+        for (let i = 0; i < 360; i += 5) {
+          const angle = i * (Math.PI / 180);
+          const outerRadius = (height - 20) / 2;
+          let innerRadius;
+
+          if (i % 60 === 0) {
+            innerRadius = 0; // Goes to the center
+          } else if (i % 30 === 0) {
+            innerRadius = outerRadius * 0.34; // Goes to 66% of the radius
+          } else if (i % 10 === 0) {
+            innerRadius = outerRadius * 0.67; // Goes to 33% of the radius
+          } else {
+            innerRadius = outerRadius - 5; // 5° subdivisions remain unchanged
+          }
+
+          // Line
+          degreesGroup
+            .append("line")
+            .attr("x1", width / 2 + innerRadius * Math.sin(angle))
+            .attr("y1", height / 2 - innerRadius * Math.cos(angle))
+            .attr("x2", width / 2 + outerRadius * Math.sin(angle))
+            .attr("y2", height / 2 - outerRadius * Math.cos(angle))
+            .attr("stroke", "#000")
+            .attr("stroke-width", 1);
+
+          // Text (only for multiples of 10 degrees)
+          if (i % 10 === 0) {
+            const textRadius = outerRadius + 20;
+            degreesGroup
+              .append("text")
+              .attr("x", width / 2 + textRadius * Math.sin(angle))
+              .attr("y", height / 2 - textRadius * Math.cos(angle))
+              .attr("text-anchor", "middle")
+              .attr("dominant-baseline", "middle")
+              .attr("font-size", "12px")
+              .text(i.toString() + "º");
+          }
+        }
       })
       .catch((error) =>
         console.error("Error loading or processing world map data:", error)
@@ -182,7 +235,7 @@ const AzimuthalMap: React.FC = () => {
   }, []);
 
   return (
-    <div className="w-full max-w-[800px] aspect-square">
+    <div className="w-full max-w-[880px] aspect-square">
       <svg ref={svgRef} className="w-full h-full cursor-move"></svg>
       <p className="mt-2 text-center text-sm text-gray-600">
         Click and drag to rotate the map. Use mouse wheel or pinch to zoom in
