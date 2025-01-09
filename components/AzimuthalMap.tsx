@@ -24,16 +24,18 @@ interface Topology {
 
 const AzimuthalMap: React.FC = () => {
   const svgRef = useRef<SVGSVGElement>(null);
-  const rotationRef = useRef<[number, number, number]>([-13, -58, 0]);
+  const rotationRef = useRef<[number, number, number]>([-13.27, -58.33, 0]);
   const zoomRef = useRef<d3.ZoomTransform>(d3.zoomIdentity);
-  const [coordinates, setCoordinates] = useState<[number, number]>([-13, -58]);
+  const [coordinates, setCoordinates] = useState<[number, number]>([
+    -13.27, -58.33,
+  ]);
 
   useEffect(() => {
     if (!svgRef.current) return;
 
     const width = 800;
     const height = 800;
-    const padding = 40; // Add padding to accommodate labels
+    const padding = 40;
     const totalWidth = width + 2 * padding;
     const totalHeight = height + 2 * padding;
 
@@ -43,15 +45,12 @@ const AzimuthalMap: React.FC = () => {
       .attr("height", totalHeight)
       .attr("viewBox", [0, 0, totalWidth, totalHeight].join(" "));
 
-    // Clear any existing content
     svg.selectAll("*").remove();
 
-    // Create a group for the entire map and center it within the padded SVG
     const mapGroup = svg
       .append("g")
       .attr("transform", `translate(${padding}, ${padding})`);
 
-    // Create a clipping path
     const clipPath = mapGroup
       .append("defs")
       .append("clipPath")
@@ -63,12 +62,10 @@ const AzimuthalMap: React.FC = () => {
       .attr("cy", height / 2)
       .attr("r", (height - 20) / 2);
 
-    // Create a group for the map content and apply the clip path
     const clippedGroup = mapGroup
       .append("g")
       .attr("clip-path", "url(#circle-clip)");
 
-    // Create a background within the clipped area
     clippedGroup
       .append("rect")
       .attr("width", width)
@@ -89,9 +86,13 @@ const AzimuthalMap: React.FC = () => {
         "d",
         (d) => path(d) || ""
       );
+
+      g.selectAll<SVGTextElement, Feature>("text").attr("transform", (d) => {
+        const centroid = path.centroid(d);
+        return `translate(${centroid[0]},${centroid[1]})`;
+      });
     }
 
-    // Create zoom behavior
     const zoom = d3
       .zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.5632, 8])
@@ -110,10 +111,8 @@ const AzimuthalMap: React.FC = () => {
         updateMap();
       });
 
-    // Apply zoom behavior to SVG
     svg.call(zoom);
 
-    // Load and render world map data
     d3.json<Topology>(
       "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json"
     )
@@ -135,7 +134,20 @@ const AzimuthalMap: React.FC = () => {
           .attr("stroke", "#000")
           .attr("stroke-width", 0.5);
 
-        // Set up Hammer.js
+        g.selectAll<SVGTextElement, Feature>("text")
+          .data(countries.features)
+          .enter()
+          .append("text")
+          .attr("transform", (d) => {
+            const centroid = path.centroid(d);
+            return `translate(${centroid[0]},${centroid[1]})`;
+          })
+          .attr("text-anchor", "middle")
+          .attr("dominant-baseline", "middle")
+          .attr("font-size", "8px")
+          .attr("fill", "#000")
+          .text((d) => d.properties.name);
+
         const hammer = new Hammer(svgRef.current);
         hammer.get("pinch").set({ enable: true });
         hammer.get("pan").set({ direction: Hammer.DIRECTION_ALL });
@@ -178,7 +190,6 @@ const AzimuthalMap: React.FC = () => {
           zoom.scaleTo(svg, scale);
         });
 
-        // Add a circle to represent the edge of the projection
         mapGroup
           .append("circle")
           .attr("cx", width / 2)
@@ -189,7 +200,6 @@ const AzimuthalMap: React.FC = () => {
           .attr("stroke-width", 1)
           .attr("pointer-events", "none");
 
-        // Add degree markings
         const degreesGroup = mapGroup.append("g");
         for (let i = 0; i < 360; i += 5) {
           const angle = i * (Math.PI / 180);
@@ -197,16 +207,15 @@ const AzimuthalMap: React.FC = () => {
           let innerRadius;
 
           if (i % 60 === 0) {
-            innerRadius = 0; // Goes to the center
+            innerRadius = 0;
           } else if (i % 30 === 0) {
-            innerRadius = outerRadius * 0.34; // Goes to 66% of the radius
+            innerRadius = outerRadius * 0.34;
           } else if (i % 10 === 0) {
-            innerRadius = outerRadius * 0.67; // Goes to 33% of the radius
+            innerRadius = outerRadius * 0.67;
           } else {
-            innerRadius = outerRadius - 5; // 5° subdivisions remain unchanged
+            innerRadius = outerRadius - 5;
           }
 
-          // Line
           degreesGroup
             .append("line")
             .attr("x1", width / 2 + innerRadius * Math.sin(angle))
@@ -216,7 +225,6 @@ const AzimuthalMap: React.FC = () => {
             .attr("stroke", "#000")
             .attr("stroke-width", 1);
 
-          // Text (only for multiples of 10 degrees)
           if (i % 10 === 0) {
             const textRadius = outerRadius + 20;
             degreesGroup
@@ -234,17 +242,21 @@ const AzimuthalMap: React.FC = () => {
         console.error("Error loading or processing world map data:", error)
       );
 
-    // Add aria-label for accessibility
     svg.attr("aria-label", "Interactive Azimuthal Equidistant World Map");
     updateMap();
   }, []);
 
   return (
     <div className="w-full max-w-[880px] aspect-square">
-      <h1 className="text-2xl font-bold mb-4 text-center">Azimuthal Map</h1>
-      <h2 className="text-xl font-bold mb-4 text-center">
+      <h1 className="text-2xl font-bold mb-2 text-center">Azimuthal Map</h1>
+      <h2 className="text-xl font-bold mb-2 text-center">
         {`${coordinates[0].toFixed(2)}°, ${coordinates[1].toFixed(2)}°`}
       </h2>
+      <h3 className="text-sm text-gray-600 ml-2 text-center">
+        {coordinates[0] === -13.27 && coordinates[1] === -58.33
+          ? "(SA6HAM QTH)"
+          : " "}
+      </h3>
       <svg ref={svgRef} className="w-full h-full cursor-move"></svg>
       <p className="mt-2 text-center text-sm text-gray-600">
         Click and drag to rotate the map. Use mouse wheel or pinch to zoom in

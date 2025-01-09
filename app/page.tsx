@@ -8,7 +8,7 @@ const AzimuthalMap = dynamic(() => import("../components/AzimuthalMap"), {
 
 export default function Home() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
+    <div className="flex flex-col items-center justify-center p-4">
       <AzimuthalMap />
     </div>
   );
