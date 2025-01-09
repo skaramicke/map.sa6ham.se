@@ -8,6 +8,7 @@ import {
 } from "d3-geo";
 import * as topojson from "topojson-client";
 import { GeometryObject, GeometryCollection } from "topojson-specification";
+import Hammer from "hammerjs";
 
 type Geometry = GeoJSON.Geometry;
 type Feature = GeoJSON.Feature<Geometry, { name: string }>;
@@ -78,11 +79,34 @@ const AzimuthalMap: React.FC = () => {
       );
     }
 
+    // Create zoom behavior
+    const zoom = d3
+      .zoom<SVGSVGElement, unknown>()
+      .scaleExtent([0.5632, 8])
+      .on("zoom", (event: d3.D3ZoomEvent<SVGSVGElement, unknown>) => {
+        const { transform } = event;
+        zoomRef.current = transform;
+
+        g.attr(
+          "transform",
+          `translate(${width / 2}, ${height / 2}) scale(${
+            transform.k
+          }) translate(${-width / 2}, ${-height / 2})`
+        );
+
+        projection.scale(((height - 20) / 2) * transform.k);
+        updateMap();
+      });
+
+    // Apply zoom behavior to SVG
+    svg.call(zoom);
+
     // Load and render world map data
     d3.json<Topology>(
       "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json"
     )
       .then((topology) => {
+        if (!svgRef.current) return;
         if (!topology) throw new Error("Failed to load topology");
 
         const countries = topojson.feature(
@@ -99,39 +123,44 @@ const AzimuthalMap: React.FC = () => {
           .attr("stroke", "#000")
           .attr("stroke-width", 0.5);
 
-        // Add drag behavior
-        const drag = d3.drag<SVGSVGElement, unknown>().on("drag", (event) => {
-          const [x, y] = rotationRef.current;
-          const k = 100 / (projection.scale() * zoomRef.current.k);
+        // Set up Hammer.js
+        const hammer = new Hammer(svgRef.current);
+        hammer.get("pinch").set({ enable: true });
+        hammer.get("pan").set({ direction: Hammer.DIRECTION_ALL });
 
-          rotationRef.current = [x + event.dx * k, y - event.dy * k, 0];
-          updateMap();
+        let lastDeltaX = 0;
+        let lastDeltaY = 0;
+
+        hammer.on("panstart", () => {
+          lastDeltaX = 0;
+          lastDeltaY = 0;
         });
 
-        svg.call(drag);
+        hammer.on("panmove", (ev) => {
+          const [x, y] = rotationRef.current;
+          const baseK = 0.3;
+          const k = baseK / Math.sqrt(projection.scale() / ((height - 20) / 2));
 
-        // Add zoom behavior with extended zoom range and fixed center
-        const zoom = d3
-          .zoom<SVGSVGElement, unknown>()
-          .scaleExtent([0.5632, 8])
-          .on("zoom", (event) => {
-            const { transform } = event;
-            zoomRef.current = transform;
+          const deltaX = ev.deltaX - lastDeltaX;
+          const deltaY = ev.deltaY - lastDeltaY;
 
-            // Apply zoom transform to the group, keeping the center fixed
-            g.attr(
-              "transform",
-              `translate(${width / 2}, ${height / 2}) scale(${
-                transform.k
-              }) translate(${-width / 2}, ${-height / 2})`
-            );
+          rotationRef.current = [x + deltaX * k, y - deltaY * k, 0];
+          updateMap();
 
-            // Update the projection scale
-            projection.scale(((height - 20) / 2) * transform.k);
-            updateMap();
-          });
+          lastDeltaX = ev.deltaX;
+          lastDeltaY = ev.deltaY;
+        });
 
-        svg.call(zoom);
+        let initialScale = 1;
+
+        hammer.on("pinchstart", () => {
+          initialScale = zoomRef.current.k;
+        });
+
+        hammer.on("pinch", (ev) => {
+          const scale = Math.max(0.5632, Math.min(8, initialScale * ev.scale));
+          zoom.scaleTo(svg, scale);
+        });
 
         // Add a circle to represent the edge of the projection
         svg
@@ -156,10 +185,9 @@ const AzimuthalMap: React.FC = () => {
     <div className="w-full max-w-[800px] aspect-square">
       <svg ref={svgRef} className="w-full h-full cursor-move"></svg>
       <p className="mt-2 text-center text-sm text-gray-600">
-        Click and drag to rotate the map. Use mouse wheel to zoom in and out to
-        see the entire projection.
+        Click and drag to rotate the map. Use mouse wheel or pinch to zoom in
+        and out to see the entire projection.
       </p>
-      <p></p>
       <p className="mt-2 text-center text-sm text-gray-600">
         Interested in how this map was made? Check out the source code on{" "}
         <a
@@ -177,3 +205,4 @@ const AzimuthalMap: React.FC = () => {
 };
 
 export default AzimuthalMap;
+
