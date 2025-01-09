@@ -196,7 +196,7 @@ const AzimuthalMap: React.FC = () => {
           .attr("cy", height / 2)
           .attr("r", (height - 20) / 2)
           .attr("fill", "none")
-          .attr("stroke", "#000")
+          .attr("stroke", "#0009")
           .attr("stroke-width", 1)
           .attr("pointer-events", "none");
 
@@ -207,13 +207,13 @@ const AzimuthalMap: React.FC = () => {
           let innerRadius;
 
           if (i % 60 === 0) {
-            innerRadius = 0;
+            innerRadius = outerRadius * 0.05;
           } else if (i % 30 === 0) {
             innerRadius = outerRadius * 0.34;
           } else if (i % 10 === 0) {
-            innerRadius = outerRadius * 0.67;
+            innerRadius = outerRadius * 0.64;
           } else {
-            innerRadius = outerRadius - 5;
+            innerRadius = outerRadius * 0.8;
           }
 
           degreesGroup
@@ -222,7 +222,7 @@ const AzimuthalMap: React.FC = () => {
             .attr("y1", height / 2 - innerRadius * Math.cos(angle))
             .attr("x2", width / 2 + outerRadius * Math.sin(angle))
             .attr("y2", height / 2 - outerRadius * Math.cos(angle))
-            .attr("stroke", "#000")
+            .attr("stroke", `#000${i % 30 === 0 ? "9" : "6"}`)
             .attr("stroke-width", 1);
 
           if (i % 10 === 0) {
