@@ -170,7 +170,7 @@ const AzimuthalMap: React.FC = () => {
           const deltaY = ev.deltaY - lastDeltaY;
 
           const newX = x + deltaX * k;
-          const newY = y - deltaY * k;
+          const newY = Math.max(-90, Math.min(90, y - deltaY * k));
           rotationRef.current = [newX, newY, 0];
           setCoordinates([newX, newY]);
           updateMap();
